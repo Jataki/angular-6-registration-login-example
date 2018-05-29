@@ -3,6 +3,8 @@ import { HttpRequest, HttpResponse, HttpHandler, HttpEvent, HttpInterceptor, HTT
 import { Observable, of, throwError } from 'rxjs';
 import { delay, mergeMap, materialize, dematerialize } from 'rxjs/operators';
 
+import * as jwt from 'jsonwebtoken';
+
 @Injectable()
 export class FakeBackendInterceptor implements HttpInterceptor {
 
@@ -30,7 +32,7 @@ export class FakeBackendInterceptor implements HttpInterceptor {
                         username: user.username,
                         firstName: user.firstName,
                         lastName: user.lastName,
-                        token: 'fake-jwt-token'
+                        token: jwt.sign(user, 'auth_complete')
                     };
 
                     return of(new HttpResponse({ status: 200, body: body }));
@@ -42,10 +44,10 @@ export class FakeBackendInterceptor implements HttpInterceptor {
 
             // get users
             if (request.url.endsWith('/api/users') && request.method === 'GET') {
-                // check for fake auth token in header and return users if valid, this security is implemented server side in a real application
-                if (request.headers.get('Authorization') === 'Bearer fake-jwt-token') {
-                    return of(new HttpResponse({ status: 200, body: users }));
-                } else {
+                try{
+                  jwt.verify(request.headers.get('Authorization').split(' ')[1],'auth_complete');
+                  return of(new HttpResponse({ status: 200, body: users }));
+                } catch(err) {
                     // return 401 not authorised if token is null or invalid
                     return throwError('Unauthorised');
                 }
